@@ -10,12 +10,12 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
   using Krylov
   using LinearOperators
 
-  const κ0 = 1.0E-03 
+  const κ0 = 1.0E-0 
   const r  = 3.5 
   const s  = 1.5 # exponent for pressure preconditioner
-  const FF = 1.0e05
-  const α = 1.0e-08
-  const ρ0 = 1.0e-06
+  const FF = 1.0e0
+  const α = 1.0e-0
+  const ρ0 = 1.0e-0
 
 
   function normu(v)
@@ -29,6 +29,8 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
   κ(x) = κ0*(1+exp(-0.5*(10*x[2]-5.0-sin(10.0*x[1]))^2))
   κinv(x)=  1.0/κ(x)
   weight_κFF(x) = 1.0/(κinv(x)+FF)
+  ϕ_ex(x)  = 0.0001*sin(π*x[1])*cos(π*x[2])
+  rec2(x) = (normu(ϕ_ex(x)))^(4)
 
   f_ex = VectorValue(0,0) 
   g_ex = 0.0
@@ -190,7 +192,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
 
     eζ = sqrt(sum(∫((1.0/α)*(eζh⋅eζh))dΩ)) + (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(1.2))dΩ))^(5.0/6.0)  
 
-    aϕ1(ϕ1,ϕ2) = ∫((abs(ϕ1)) * (abs(ϕ1)) * (abs(ϕ1)) *(abs(ϕ1)) *ϕ1 * ϕ2)dΩ
+    aϕ1(ϕ1,ϕ2) = ∫((rec2) *ϕ1 * ϕ2)dΩ
     aϕ2(ϕ1,ϕ2) = (1/(1+ρ0))*∫(α*(∇(ϕ1))⋅∇(ϕ2))dΩ + (1/(1+ρ0))*∫((α/h_e)*jump(ϕ1)*jump(ϕ2))dΛ + (1/(1+ρ0))*∫((α/h_e_Γout)*ϕ1*ϕ2)dΓout
               
     
