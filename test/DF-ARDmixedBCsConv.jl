@@ -25,14 +25,15 @@ module DarcyForchheimerConvergenceTests_mixedBC
   u_ex(x)  = VectorValue(cos(π*x[1])*sin(π*x[2]),
                           -sin(π*x[1])*cos(π*x[2]))
   p_ex(x)  = sin(π*x[1])*cos(π*x[2])
-  ζ_ex(x) = VectorValue(sin(2π*x[1]), cos(2π*x[2]))
+  #ζ_ex(x) = VectorValue(sin(2π*x[1]), cos(2π*x[2]))
   ϕ_ex(x) = cos(2π*x[1])*sin(2π*x[2])
 
 
   f_ex(x) = (1.0/κ)*u_ex(x) + ∇(p_ex)(x) + FF*u_ex(x)*(normu∘u_ex)(x) 
   g_ex(x) = (∇⋅u_ex)(x)
-  h_ex(x) = (1.0/α)*ζ_ex(x) - ∇(ϕ_ex)(x) + u_ex(x) * ϕ_ex(x)
-  m_ex(x) =  ρ0*ϕ_ex(x) - (∇⋅ζ_ex)(x) 
+  #h_ex(x) = (1.0/α)*ζ_ex(x) - ∇(ϕ_ex)(x) + u_ex(x) * (1.0/α)*ϕ_ex(x)
+  ζ_ex(x) = α*∇(ϕ_ex)(x) - u_ex(x) * ϕ_ex(x)
+  m_ex(x) =  (ρ0+g_ex(x))*ϕ_ex(x) - (∇⋅ζ_ex)(x) 
 
   function solve_Forchheimer(model; k=k, generate_output=false)
     reffe_u = ReferenceFE(raviart_thomas,Float64,k)
@@ -64,24 +65,30 @@ module DarcyForchheimerConvergenceTests_mixedBC
     dΓu = Measure(Γu,2*(k+2)-1)
     n_Γu = get_normal_vector(Γu)
 
-    a1(u,v)   = ∫( (1/κ)*(u⋅v))*dΩ
+    a1(u,v)   = ∫( (1.0/κ)*(u⋅v))*dΩ
     c(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d1(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d2(u,w,v) = ∫(FF*(u⋅v)*((deri∘(u))⋅w))dΩ 
     b1(v,q)   = ∫(-(∇⋅v)*q)*dΩ
     F(v)     = ∫(f_ex⋅v)*dΩ -∫(p_ex*(v⋅n_Γp))dΓp
-    G(q)     = ∫((-1.0)*(g_ex*q))dΩ
+    G(q)     = ∫(g_ex*q)dΩ
     
-    a2(ζ,τ) = ∫( (1/α)*(ζ⋅τ))*dΩ
+    a2(ζ,τ) = ∫( (1.0/α)*(ζ⋅τ))*dΩ
     b2(τ,ψ) = ∫((∇⋅τ)*ψ)*dΩ
-    c2(ϕ,ψ) = ∫( (ρ0)*(ϕ * ψ))*dΩ
-    e(u,ϕ,τ) = ∫((u⋅τ) * ϕ)*dΩ  
-    M(τ) = ∫((1.0)*(h_ex⋅τ))*dΩ 
-    H(ψ) = ∫((1.0)*(m_ex*ψ))dΩ
+    c2(ϕ,ψ) = ∫(g_ex*(ϕ * ψ))*dΩ
+    e(u,ϕ,τ) = ∫((1.0/α)* (u⋅τ) * ϕ)*dΩ  
+    M(τ) = ∫(ϕ_ex*(τ⋅n_Γu))dΓu
+    H(ψ) = ∫(m_ex*ψ)dΩ
 
-    resid((u,p,ζ,ϕ),(v,q,τ,ψ)) = a1(u,v) + c(u,u,v) + b1(v,p) + b1(u,q) - F(v) - G(q) + a2(ζ,τ) + b2(τ,ϕ) - b2(ζ,ψ) + c2(ϕ,ψ) - e(u_ex,ϕ,τ) - M(τ) - H(ψ)
+    resid((u,p,ζ,ϕ),(v,q,τ,ψ)) = a1(u,v) + c(u,u,v) + b1(v,p) +
+                                 b1(u,q) - F(v) + G(q) + 
+                                 a2(ζ,τ) + b2(τ,ϕ) + e(u,ϕ,τ) + 
+                                 b2(ζ,ψ) - c2(ϕ,ψ) - M(τ) + H(ψ)
 
-    jacob((u,p,ζ,ϕ),(du,dp,dζ,dϕ),(v,q,τ,ψ)) = a1(du,v) + d1(u,du,v) + d2(u,du,v) + b1(v,dp) + b1(du,q) + a2(dζ,τ) + b2(τ,dϕ) - b2(dζ,ψ) + c2(dϕ,ψ) - e(u_ex,dϕ,τ) #+ e(du,ϕ,τ)
+    jacob((u,p,ζ,ϕ),(du,dp,dζ,dϕ),(v,q,τ,ψ)) = a1(du,v) + d1(u,du,v) + d2(u,du,v) + b1(v,dp) + 
+                                               b1(du,q) + 
+                                               a2(dζ,τ) + b2(τ,dϕ) + e(u,dϕ,τ) + e(du,ϕ,τ) + 
+                                               b2(dζ,ψ) - c2(dϕ,ψ) 
 
     oper = FEOperator(resid,jacob,Xh,Yh)
     nls = NLSolver(show_trace=true, method=:newton, linesearch=BackTracking(), iterations=25, ftol=1.0E-7)
@@ -104,8 +111,8 @@ module DarcyForchheimerConvergenceTests_mixedBC
     
     eu = (sum(∫((euh⋅euh).^(0.5*3.0))dΩ))^(1.0/3.0) + sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
     ep = sqrt(sum(∫(eph*eph)*dΩ))
-    eζ =  (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(1.2))dΩ))^(5.0/6.0) + sqrt(sum(∫(eζh⋅eζh)dΩ))
-    eϕ = (sum(∫((eϕh*eϕh).^(6.0))dΩ))^(1.0/6.0)
+    eζ =  (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0) + sqrt(sum(∫(eζh⋅eζh)dΩ))
+    eϕ = (sum(∫((eϕh*eϕh).^(0.5*6.0))dΩ))^(1.0/6.0)
 
     if generate_output 
       writevtk(Ω,"DFconvergence_ncells=$(num_cells(model))",order=1,cellfields=["uh"=>uh,"ph"=>ph,"ζh"=>ζh,"ϕh"=>ϕh])
