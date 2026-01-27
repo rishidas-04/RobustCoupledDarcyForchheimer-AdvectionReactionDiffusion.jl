@@ -14,6 +14,11 @@ module DarcyForchheimerConvergenceTests_mixedBC
   const α = 1.0E0
   const ρ0 = 1.0E0
 
+  const α0 = 1.0E0
+  const α1 = 1.0E0
+
+  grav = VectorValue(0.0,1.0)
+
   function normu(v)
     (v⋅v>0)*(sqrt(v⋅v))^(r-2)
   end
@@ -22,18 +27,19 @@ module DarcyForchheimerConvergenceTests_mixedBC
     (v⋅v>0)*(r-2)*(sqrt(v⋅v))^(r-4)*v
   end
 
+  function transport(ϕ)
+    grav*(α0+α1*ϕ)
+  end
+
   u_ex(x)  = VectorValue(cos(π*x[1])*sin(π*x[2]),
                           -sin(π*x[1])*cos(π*x[2]))
-  p_ex(x)  = sin(π*x[1])*cos(π*x[2])
-  #ζ_ex(x) = VectorValue(sin(2π*x[1]), cos(2π*x[2]))
-  ϕ_ex(x) = cos(2π*x[1])*sin(2π*x[2])
+  p_ex(x)  = sin(π*x[1])*sin(π*x[2])
+  ϕ_ex(x) = cos(2π*x[1])*cos(2π*x[2])
 
-
-  f_ex(x) = (1.0/κ)*u_ex(x) + ∇(p_ex)(x) + FF*u_ex(x)*(normu∘u_ex)(x) 
+  f_ex(x) = (1.0/κ)*u_ex(x) + ∇(p_ex)(x) + FF*u_ex(x)*(normu∘u_ex)(x) - (transport∘ϕ_ex)(x)
   g_ex(x) = (∇⋅u_ex)(x)
-  #h_ex(x) = (1.0/α)*ζ_ex(x) - ∇(ϕ_ex)(x) + u_ex(x) * (1.0/α)*ϕ_ex(x)
   ζ_ex(x) = α*∇(ϕ_ex)(x) - u_ex(x) * ϕ_ex(x)
-  m_ex(x) =  (ρ0+g_ex(x))*ϕ_ex(x) - (∇⋅ζ_ex)(x) 
+  m_ex(x) =  (ρ0-g_ex(x))*ϕ_ex(x) - (∇⋅ζ_ex)(x) 
 
   function solve_Forchheimer(model; k=k, generate_output=false)
     reffe_u = ReferenceFE(raviart_thomas,Float64,k)
@@ -70,22 +76,23 @@ module DarcyForchheimerConvergenceTests_mixedBC
     d1(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d2(u,w,v) = ∫(FF*(u⋅v)*((deri∘(u))⋅w))dΩ 
     b1(v,q)   = ∫(-(∇⋅v)*q)*dΩ
+    F0(v,ϕ)  = ∫((transport∘ϕ)⋅v)*dΩ
     F(v)     = ∫(f_ex⋅v)*dΩ -∫(p_ex*(v⋅n_Γp))dΓp
     G(q)     = ∫(g_ex*q)dΩ
     
     a2(ζ,τ) = ∫( (1.0/α)*(ζ⋅τ))*dΩ
     b2(τ,ψ) = ∫((∇⋅τ)*ψ)*dΩ
-    c2(ϕ,ψ) = ∫(g_ex*(ϕ * ψ))*dΩ
+    c2(ϕ,ψ) = ∫(ρ0*(ϕ * ψ))*dΩ - ∫(g_ex*(ϕ * ψ))*dΩ
     e(u,ϕ,τ) = ∫((1.0/α)* (u⋅τ) * ϕ)*dΩ  
     M(τ) = ∫(ϕ_ex*(τ⋅n_Γu))dΓu
     H(ψ) = ∫(m_ex*ψ)dΩ
 
     resid((u,p,ζ,ϕ),(v,q,τ,ψ)) = a1(u,v) + c(u,u,v) + b1(v,p) +
-                                 b1(u,q) - F(v) + G(q) + 
+                                 b1(u,q) - F0(v,ϕ) - F(v) + G(q) + 
                                  a2(ζ,τ) + b2(τ,ϕ) + e(u,ϕ,τ) + 
                                  b2(ζ,ψ) - c2(ϕ,ψ) - M(τ) + H(ψ)
 
-    jacob((u,p,ζ,ϕ),(du,dp,dζ,dϕ),(v,q,τ,ψ)) = a1(du,v) + d1(u,du,v) + d2(u,du,v) + b1(v,dp) + 
+    jacob((u,p,ζ,ϕ),(du,dp,dζ,dϕ),(v,q,τ,ψ)) = a1(du,v) + d1(u,du,v) + d2(u,du,v) + b1(v,dp) -F0(v,dϕ) + 
                                                b1(du,q) + 
                                                a2(dζ,τ) + b2(τ,dϕ) + e(u,dϕ,τ) + e(du,ϕ,τ) + 
                                                b2(dζ,ψ) - c2(dϕ,ψ) 
@@ -173,5 +180,5 @@ module DarcyForchheimerConvergenceTests_mixedBC
     end
     println("=========================================================================================================")
   end
-  convergence_test(;nkmax=6,k=0,generate_output=false)
+  convergence_test(;nkmax=6,k=1,generate_output=false)
 end
