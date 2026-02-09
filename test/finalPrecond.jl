@@ -136,8 +136,7 @@ end
 
         a44a_B2(ϕ1,ϕ2)  = ∫((1.0 + ρ0) * ϕ1 * ϕ2)*dΩ #+ ρ0 *∫((x -> (5 * ϕ_ex(x) * ϕ_ex(x) * ϕ_ex(x) * ϕ_ex(x))) * ϕ1 * ϕ2)*dΩ 
         a44b_B2(ϕ1,ϕ2) = ∫(ρ0 * ϕ1 * ϕ2)dΩ + ∫(α*(∇(ϕ1))⋅∇(ϕ2))dΩ + ∫((α/h_eu)*jump(ϕ1)*jump(ϕ2))dΛu + ∫((α/h_e_Γu)*ϕ1*ϕ2)dΓu
-        # a44c_B2(ϕ1,ϕ2) = ∫((x -> (ρ0 - g_ex(x)))*ϕ1*ϕ2)*dΩ
-
+        
      A11_,A22a_,A22b_,A22c_,A33_,A44a_,A44b_ = assemble_matrix(a11_B2,X1,Y1),assemble_matrix(a22a_B2,X2,Y2),assemble_matrix(a22b_B2,X2,Y2),assemble_matrix(a22c_B2,X2,Y2),assemble_matrix(a33_B2,X3,Y3),assemble_matrix(a44a_B2,X4,Y4),assemble_matrix(a44b_B2,X4,Y4)
      A22=LinearOperator(GridapLinearSolverPreconditioner(A22a_))+
              LinearOperator(GridapLinearSolverPreconditioner(A22b_)) + LinearOperator(GridapLinearSolverPreconditioner(A22c_))
