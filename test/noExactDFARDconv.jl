@@ -26,8 +26,8 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     (v⋅v>0)*(r-2)*(sqrt(v⋅v))^(r-4)*v
   end
 
-  const α0 = 1.0E0
-  const α1 = 1.0E0
+  const α0 = 1.0E-0
+  const α1 = 1.0E-0
   grav = VectorValue(0.0,1.0)
   function transport(ϕ)
     grav*(α0+α1*ϕ)
@@ -37,16 +37,16 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
   κinv(x)=  1.0/κ(x)
   weight_κFF(x) = 1.0/(κinv(x)+FF)
 
-  f_ex = VectorValue(0,0) 
-  g_ex = 0.0
+  f_ex(x) = VectorValue(0.0,0.0)
+  g_ex(x) = 0.0
   zerov = VectorValue(0.0,0.0)
   uin(x) = VectorValue(2.5*x[2]*(1-x[2]),0.0)
   pout  = 0.0
 
   h_ex = VectorValue(0,0) 
-  m_ex(x) = sin(π*x[1])*sin(π*x[2]) #0.0
-  ζin(x) = VectorValue(0.0,2.5*x[2]*(1-x[2]))
-  ϕout(x) = 2.5*x[2]*(1-x[2])
+  m_ex(x) = 0.0
+  ζin(x) = VectorValue(0.0,2.5*x[1]*(1-x[1]))
+  ϕout(x) = 0.0
 
   function solve_ForchheimerNoExact(model; k=k, generate_output=false)
     reffe_u = ReferenceFE(raviart_thomas,Float64,k)
@@ -85,42 +85,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     n_Γin = get_normal_vector(Γin)
     h_e_Γin = CellField(get_array(∫(1)dΓin), Γin)
 
-    # a(u,v)    = ∫( κinv*(u⋅v))*dΩ
-    # c(u,w,v)  = ∫(FF*v⋅((normu∘(u))*w))dΩ
-    # d1(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
-    # d2(u,w,v) = ∫(FF*(u⋅v)*((deri∘(u))⋅w))dΩ 
-    # b(v,q)    = ∫(-(∇⋅v)*q)*dΩ
-    # F(v)      = ∫(f_ex⋅v)*dΩ -∫(pout*(v⋅n_Γout))dΓout
-    # F0(v,ϕ)  = ∫((transport∘ϕ)⋅v)*dΩ
-    # G(q)      = ∫((-1.0)*(g_ex*q))dΩ
 
-    # a2(ζ1,ζ2) = ∫((1.0/α)*(ζ1⋅ζ2))*dΩ
-    # # c2(u,ζ,ϕ) = ∫((u⋅ζ)*ϕ)*dΩ
-    # c3(ϕ,ψ)   = ∫(ρ0*(ϕ*ψ))*dΩ
-    # e(u,ϕ,τ) = ∫((1.0/α)* (u⋅τ) * ϕ)*dΩ  
-    # M(τ) = ∫(ϕout*(τ⋅n_Γin))dΓin
-    # H(ψ) = ∫(m_ex*ψ)dΩ
-  
-
-    # resid((u,p,ζ,ϕ),(v,q,τ,ψ)) = a(u,v) + c(u,u,v) + b(v,p) +
-    #                              b(u,q) - F0(v,ϕ) - F(v) + G(q) + 
-    #                              a2(ζ,τ) + b(τ,ϕ) + e(u,ϕ,τ) + 
-    #                              b(ζ,ψ) - c3(ϕ,ψ) - M(τ) + H(ψ)
-
-    # jacob((u,p,ζ,ϕ),(du,dp,dζ,dϕ),(v,q,τ,ψ)) = a(du,v) + d1(u,du,v) + d2(u,du,v) + b(v,dp) - F0(v,dϕ) + 
-    #                                            b(du,q) + 
-    #                                            a2(dζ,τ) + b(τ,dϕ) + e(u,dϕ,τ) + e(du,ϕ,τ) + 
-    #                                            b(dζ,ψ) - c3(dϕ,ψ) 
-
-    # oper = FEOperator(resid,jacob,Xh,Yh)
-    # nls = NLSolver(show_trace=true, method=:newton, linesearch=BackTracking(), iterations=25, ftol=1.0E-6)
-    # solver = FESolver(nls)
-    # x0=0.01*ones(num_free_dofs(Xh)) 
-    # xh=FEFunction(Xh,x0)
-    # (uh,ph,ζh,ϕh), _ = solve!(xh,solver,oper)
-
-
-    ##############################################################
     a1(u,v)   = ∫( (κinv)*(u⋅v))*dΩ
     c(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d1(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
@@ -139,7 +104,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
 
     resid((u,p,ζ,ϕ),(v,q,τ,ψ)) = a1(u,v) + c(u,u,v) + b1(v,p) +
                                  b1(u,q) - F0(v,ϕ) - F(v) - G(q) + 
-                                 a2(ζ,τ) - b2(τ,ϕ) + e(u,ϕ,τ) - 
+                                 a2(ζ,τ) + b2(τ,ϕ) + e(u,ϕ,τ) + 
                                  b2(ζ,ψ) - c2(ϕ,ψ) - M(τ) - H(ψ)
 
     jacob((u,p,ζ,ϕ),(du,dp,dζ,dϕ),(v,q,τ,ψ)) = a1(du,v) + d1(u,du,v) + d2(u,du,v) + b1(v,dp) -F0(v,dϕ) + 
@@ -153,8 +118,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     x0=0.01*ones(num_free_dofs(Xh)) 
     xh=FEFunction(Xh,x0)
     (uh,ph,ζh,ϕh), _ = solve!(xh,solver,oper)
-    ######################################################
-
+    
 
     if generate_output 
       writevtk(Ω,"DFNoExactExtreme_ncells=$(num_cells(model))",order=1,cellfields=["uh"=>uh,"ph"=>ph, "ζh"=>ζh,"ϕh"=>ϕh, "κ"=>κ])
