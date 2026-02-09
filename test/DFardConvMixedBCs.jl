@@ -198,5 +198,5 @@ module DarcyForchheimerConvergenceTests_mixedBC
     end
     println("=========================================================================================================")
   end
-  convergence_test(;nkmax=6,k=0,generate_output=true)
+  convergence_test(;nkmax=6,k=0,generate_output=false)
 end
