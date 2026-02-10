@@ -45,7 +45,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
 
   h_ex = VectorValue(0,0) 
   m_ex(x) = 0.0
-  ζin(x) = α*zerov - uin(x) * ϕout(x)
+  ζin(x) = zerov
   ϕout(x) = 0.0
 
   function solve_ForchheimerNoExact(model; k=k, generate_output=false)
