@@ -45,7 +45,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
 
   h_ex = VectorValue(0,0) 
   m_ex(x) = 0.0
-  ζin(x) = VectorValue(0.0,2.5*x[1]*(1-x[1]))
+  ζin(x) = α*zerov - uin(x) * ϕout(x)
   ϕout(x) = 0.0
 
   function solve_ForchheimerNoExact(model; k=k, generate_output=false)
@@ -86,7 +86,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     h_e_Γin = CellField(get_array(∫(1)dΓin), Γin)
 
 
-    a1(u,v)   = ∫( (κinv)*(u⋅v))*dΩ
+    a1(u,v)   = ∫( (1.0/κ0)*(u⋅v))*dΩ
     c(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d1(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d2(u,w,v) = ∫(FF*(u⋅v)*((deri∘(u))⋅w))dΩ 
@@ -96,20 +96,20 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     G(q)     = ∫(g_ex*q)dΩ
     
     a2(ζ,τ) = ∫( (1.0/α)*(ζ⋅τ))*dΩ
-    b2(τ,ψ) = ∫(-(∇⋅τ)*ψ)*dΩ
+    b2(τ,ψ) = ∫((∇⋅τ)*ψ)*dΩ
     c2(ϕ,ψ) = ∫(ρ0*(ϕ * ψ))*dΩ - ∫(g_ex*(ϕ * ψ))*dΩ
     e(u,ϕ,τ) = ∫((1.0/α)* (u⋅τ) * ϕ)*dΩ  
     M(τ) = ∫(ϕout*(τ⋅n_Γin))dΓin
-    H(ψ) = ∫(-(m_ex*ψ))dΩ
+    H(ψ) = ∫((m_ex*ψ))dΩ
 
     resid((u,p,ζ,ϕ),(v,q,τ,ψ)) = a1(u,v) + c(u,u,v) + b1(v,p) +
-                                 b1(u,q) - F0(v,ϕ) - F(v) - G(q) + 
+                                 b1(u,q) - F0(v,ϕ) - F(v) + G(q) + 
                                  a2(ζ,τ) + b2(τ,ϕ) + e(u,ϕ,τ) + 
-                                 b2(ζ,ψ) - c2(ϕ,ψ) - M(τ) - H(ψ)
+                                 b2(ζ,ψ) - c2(ϕ,ψ) - M(τ) + H(ψ)
 
     jacob((u,p,ζ,ϕ),(du,dp,dζ,dϕ),(v,q,τ,ψ)) = a1(du,v) + d1(u,du,v) + d2(u,du,v) + b1(v,dp) -F0(v,dϕ) + 
                                                b1(du,q) + 
-                                               a2(dζ,τ) - b2(τ,dϕ) + e(u,dϕ,τ) + e(du,ϕ,τ) - 
+                                               a2(dζ,τ) + b2(τ,dϕ) + e(u,dϕ,τ) + e(du,ϕ,τ) + 
                                                b2(dζ,ψ) - c2(dϕ,ψ) 
 
     oper = FEOperator(resid,jacob,Xh,Yh)
