@@ -28,6 +28,139 @@ function setup_model_labels_rectangle_channel!(model)
   add_tag!(labels,"Gamma_topbot",[1,2,3,4,5,6]) # corners bottom and top
 end  
 
+ function normu(v)
+    (v⋅v>0)*(sqrt(v⋅v))^(4-2)
+  end
+
+
+function assemble_darcy(model, k, κ, κF, FF, f_rhs, g_rhs, u_ex, p_ex)
+  reffe_u = ReferenceFE(raviart_thomas,Float64,k)
+  reffe_p = ReferenceFE(lagrangian,Float64,k)
+
+  # FESpaces
+  Uh_ = TestFESpace(model,reffe_u,dirichlet_tags="Gamma_u",conformity=:HDiv)
+  Qh_ = TestFESpace(model,reffe_p,conformity=:L2)
+  
+  Uh = TrialFESpace(Uh_,u_ex)
+  Qh = TrialFESpace(Qh_)
+  # Lh = TrialFESpace(Lh_)
+
+  Yh = MultiFieldFESpace([Uh_,Qh_])
+  Xh = MultiFieldFESpace([Uh,Qh])
+
+  Ω = Triangulation(model)
+  dΩ = Measure(Ω,2*(k+2))
+  Γ = BoundaryTriangulation(model, tags = "Gamma_p")
+  dΓ = Measure(Γ,2*(k+2)-1)
+  n_Γ = get_normal_vector(Γ)
+
+  # a((u, p),(v, q)) = ∫( (1/κ)*(u⋅v) )*dΩ - ∫(q*(∇⋅u))*dΩ - ∫((∇⋅v)*p)*dΩ 
+  # b((v, q)) = ∫((1/κ)*(u_ex⋅v))*dΩ + ∫(∇(p_ex)⋅v)*dΩ - ∫(q*(∇⋅u_ex))*dΩ
+  a((u, p),(v, q)) = ∫(κF*(v⋅u))dΩ - ∫(q*(∇⋅u))*dΩ - ∫((∇⋅v)*p)*dΩ  #+ (FF)*(4-2)*∫((x -> (normu(u_ex(x)))^(4-4)) * (u_ex ⋅ u)  * (u_ex ⋅ v))dΩ#+ ∫(FF*v⋅((normu∘(u))*u))*dΩ + ∫(FF*v⋅((normu∘(u))*u))*dΩ#
+  b((v, q)) = ∫(f_rhs⋅v)*dΩ -∫(p_ex*(v⋅n_Γ))dΓ - ∫(q*g_rhs)*dΩ
+
+  # Build affine FE operator
+  op = AffineFEOperator(a,b,Xh,Yh)
+ op,dΩ
+end
+function compute_errors_darcy(xh, dΩ, κ, u_ex, p_ex)
+  uh, ph = xh
+  euh = u_ex - uh
+  # error_u = sqrt(∫((1.0/κ)*(∇⋅euh)*(∇⋅euh))*dΩ)
+  error_u = (sum(∫((euh⋅euh).^(0.5*3.0))dΩ))^(1.0/3.0) + sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
+  error_p = sqrt(sum(∫(κ*(p_ex-ph)*(p_ex-ph))*dΩ)) 
+  error_u,error_p
+end
+
+
+grav = VectorValue(0.0,1.0)
+
+function transport(ϕ)
+    grav*(1.0+ϕ)
+end
+
+# function build_analytical_functions(κ, κF, FF, u_ex, p_ex, ζ_ex, ϕ_ex)
+#   f_ex(x) = (1.0/κ)*u_ex(x) + ∇(p_ex)(x) + FF*u_ex(x)*(normu∘u_ex)(x) - (transport∘ϕ_ex)(x)
+#   g_ex(x) = (∇⋅u_ex)(x)
+#   m_ex(x) =  (1.0-g_ex(x))*ϕ_ex(x) - (∇⋅ζ_ex)(x)
+
+#   return f_ex, g_ex, m_ex
+# end
+
+function assemble_df_ard(model, k, κ, κF, FF, f_ex, g_ex, m_ex, u_ex, p_ex, ζ_ex, ϕ_ex)
+  # f_ex, g_ex, m_ex = build_analytical_functions(κ, κF, FF, u_ex, p_ex, ζ_ex, ϕ_ex)
+  reffe_u = ReferenceFE(raviart_thomas,Float64,k)
+  reffe_p = ReferenceFE(lagrangian,Float64,k)
+  reffe_ζ = ReferenceFE(raviart_thomas,Float64,k)
+  reffe_ϕ = ReferenceFE(lagrangian,Float64,k)
+
+  # FESpaces
+  Uh_ = TestFESpace(model,reffe_u,dirichlet_tags="Gamma_u",conformity=:HDiv)
+  Qh_ = TestFESpace(model,reffe_p,conformity=:L2)
+  Wh_ = TestFESpace(model,reffe_ζ,dirichlet_tags="Gamma_p",conformity=:HDiv)
+  Ψh_ = TestFESpace(model,reffe_ϕ,conformity=:L2)
+
+  Uh = TrialFESpace(Uh_,u_ex)
+  Qh = TrialFESpace(Qh_)
+  Wh = TrialFESpace(Wh_,ζ_ex)
+  Ψh = TrialFESpace(Ψh_)
+
+
+  Yh = MultiFieldFESpace([Uh_,Qh_,Wh_,Ψh_])
+  Xh = MultiFieldFESpace([Uh,Qh,Wh,Ψh])
+
+    Ω = Triangulation(model)
+    dΩ = Measure(Ω,2*(k+2))
+    Γp = BoundaryTriangulation(model, tags = "Gamma_p")
+    n_Γp = get_normal_vector(Γp)
+    dΓp = Measure(Γp,2*(k+2)-1)
+    Γu = BoundaryTriangulation(model, tags = "Gamma_u")
+    dΓu = Measure(Γu,2*(k+2)-1)
+    n_Γu = get_normal_vector(Γu)
+
+    a1(u,v)   = ∫( (κF)*(u⋅v))*dΩ
+    aF2(u,v) = (FF)*(4-2)*∫((x -> (normu(u_ex(x)))^(4-4)) * (u_ex ⋅ u)  * (u_ex ⋅ v))dΩ
+    b1(v,q)   = ∫(-(∇⋅v)*q)*dΩ
+    F0(v,ϕ)  = ∫((transport∘ϕ)⋅v)*dΩ
+    F0_lin(v,ϕ) = ∫(1.0 * (grav⋅v) * ϕ)*dΩ
+
+    F(v)     = ∫(f_ex⋅v)*dΩ -∫(p_ex*(v⋅n_Γp))dΓp
+    G(q)     = ∫(g_ex*q)dΩ
+    
+    a2(ζ,τ) = ∫( (1.0)*(ζ⋅τ))*dΩ
+    b2(τ,ψ) = ∫((∇⋅τ)*ψ)*dΩ
+    c2(ϕ,ψ) = ∫((ϕ * ψ))*dΩ - ∫(g_ex*(ϕ * ψ))*dΩ
+    e(u,ϕ,τ) = ∫((1.0)*(u⋅τ) * ϕ)*dΩ  
+    M(τ) = ∫(ϕ_ex*(τ⋅n_Γu))dΓu
+    H(ψ) = ∫(m_ex*ψ)dΩ
+
+    resi((u,p,ζ,ϕ),(v,q,τ,ψ)) =  a1(u,v) + b1(v,p) +
+                                 b1(u,q) + 
+                                 a2(ζ,τ) + b2(τ,ϕ) +
+                                  b2(ζ,ψ) - c2(ϕ,ψ)
+                          
+
+    jaco((v,q,τ,ψ)) = F(v) - G(q) + M(τ) - H(ψ) - ∫((1.0)*(u_ex⋅τ) * ϕ_ex)*dΩ + ∫((transport∘ϕ_ex)⋅v)*dΩ 
+
+  op = AffineFEOperator(resi,jaco,Xh,Yh)
+  op,dΩ
+end
+
+function compute_errors_df_ard(xh, dΩ, κ, u_ex, p_ex, ζ_ex, ϕ_ex)
+    uh, ph, ζh, ϕh = xh
+    euh = u_ex - uh
+    eph = p_ex - ph
+    eζh = ζ_ex - ζh
+    eϕh = ϕ_ex - ϕh
+    
+    error_u = (sum(∫((euh⋅euh).^(0.5*3.0))dΩ))^(1.0/3.0) + sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
+    error_p = sqrt(sum(∫(eph*eph)*dΩ))
+    error_ζ =  (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0) + sqrt(sum(∫(eζh⋅eζh)dΩ))
+    error_ϕ = (sum(∫((eϕh*eϕh).^(0.5*6.0))dΩ))^(1.0/6.0)
+    # error_ζ =  sqrt(sum(∫(eζh⋅eζh)dΩ) + sum(∫((∇⋅eζh)*(∇⋅eζh))*dΩ))
+    # error_ϕ = sqrt(sum(∫(eϕh*eϕh)*dΩ))
+    error_u,error_p,error_ζ,error_ϕ
+end
 
 function assemble_darcy_forchheimer_noExact(model, k, κ, FF, f_rhs, g_rhs)
   reffe_u = ReferenceFE(raviart_thomas,Float64,k)

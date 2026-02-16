@@ -8,9 +8,9 @@ module DarcyForchheimerConvergenceTests_mixedBC
   using LinearAlgebra
 
   
-  const κ = 1.0E-08
+  const κ = 1.0E-0
   const r = 4.0 
-  const FF = 1.0E04 
+  const FF = 1.0E0
   const α = 1.0E0
   const ρ0 = 1.0E0
 
@@ -30,7 +30,7 @@ module DarcyForchheimerConvergenceTests_mixedBC
   function transport(ϕ)
     grav*(α0+α1*ϕ)
   end
-
+ 
   u_ex(x)  = VectorValue(cos(π*x[1])*sin(π*x[2]),
                           -sin(π*x[1])*cos(π*x[2]))
   p_ex(x)  = sin(π*x[1])*sin(π*x[2])
@@ -122,24 +122,7 @@ module DarcyForchheimerConvergenceTests_mixedBC
     eϕ = (sum(∫((eϕh*eϕh).^(0.5*6.0))dΩ))^(1.0/6.0)
 
     if generate_output 
-# Visualization spaces (P1 continuous)
-# Vvis = FESpace(model, ReferenceFE(lagrangian, VectorValue{2,Float64}, 1))
-# Qvis = FESpace(model, ReferenceFE(lagrangian, Float64, 1))
-# uh_vis = interpolate(uh, Vvis)
-# ζh_vis = interpolate(ζh, Vvis)
 
-# ph_vis = interpolate(ph, Qvis)
-# ϕh_vis = interpolate(ϕh, Qvis)
-# writevtk(Ω,
-#   "DFconvergence_ncells=$(num_cells(model))",
-#   order=1,
-#   pointfields = [
-#     "uh" => uh_vis,
-#     "ph" => ph_vis,
-#     "ζh" => ζh_vis,
-#     "ϕh" => ϕh_vis
-#   ]
-# )
         writevtk(Ω,"DFconvergence_ncells=$(num_cells(model))",order=1,cellfields=["uh"=>uh,"ph"=>ph,"ζh"=>ζh,"ϕh"=>ϕh])
    end
 

@@ -15,5 +15,6 @@ module PertubedSaddlePointPreconditioners
     export generate_model2d, generate_rectangle, setup_model_labels_rectangle_channel!,setup_model_labels_unit_square!, computation_error_darcy_minimization
     export GridapLinearSolverPreconditioner
     export assemble_darcy_forchheimer_noExact, assemble_darcy_forchheimer_riesz_mapping_preconditioner_blocks, compute_errors_robust_darcy_forchheimer
-    export assemble_df_ard_noExact
+    export assemble_df_ard_noExact, assemble_darcy, compute_errors_darcy
+    export assemble_df_ard, compute_errors_df_ard
 end

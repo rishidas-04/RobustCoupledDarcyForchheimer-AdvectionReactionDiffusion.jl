@@ -33,7 +33,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     grav*(α0+α1*ϕ)
   end
 
-  κ(x) = κ0 *(1+exp(-0.5*(10*x[2]-5.0-sin(10.0*x[1]))^2))
+  κ(x) = κ0*(1+exp(-0.5*(10*x[2]-5.0-sin(10.0*x[1]))^2))
   κinv(x)=  1.0/κ(x)
   weight_κFF(x) = 1.0/(κinv(x)+FF)
 
@@ -45,7 +45,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
 
   h_ex = VectorValue(0,0) 
   m_ex(x) = 0.0
-  ζin(x) = zerov
+  ζin(x) = VectorValue(0.0,2.5*x[1]*(1-x[1]))
   ϕout(x) = 0.0
 
   function solve_ForchheimerNoExact(model; k=k, generate_output=false)
@@ -86,7 +86,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     h_e_Γin = CellField(get_array(∫(1)dΓin), Γin)
 
 
-    a1(u,v)   = ∫( (1.0/κ0)*(u⋅v))*dΩ
+    a1(u,v)   = ∫( (κinv)*(u⋅v))*dΩ
     c(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d1(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d2(u,w,v) = ∫(FF*(u⋅v)*((deri∘(u))⋅w))dΩ 
@@ -100,12 +100,12 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     c2(ϕ,ψ) = ∫(ρ0*(ϕ * ψ))*dΩ - ∫(g_ex*(ϕ * ψ))*dΩ
     e(u,ϕ,τ) = ∫((1.0/α)* (u⋅τ) * ϕ)*dΩ  
     M(τ) = ∫(ϕout*(τ⋅n_Γin))dΓin
-    H(ψ) = ∫((m_ex*ψ))dΩ
+    H(ψ) = ∫(-(m_ex*ψ))dΩ
 
     resid((u,p,ζ,ϕ),(v,q,τ,ψ)) = a1(u,v) + c(u,u,v) + b1(v,p) +
-                                 b1(u,q) - F0(v,ϕ) - F(v) + G(q) + 
+                                 b1(u,q) - F0(v,ϕ) - F(v) - G(q) + 
                                  a2(ζ,τ) + b2(τ,ϕ) + e(u,ϕ,τ) + 
-                                 b2(ζ,ψ) - c2(ϕ,ψ) - M(τ) + H(ψ)
+                                 b2(ζ,ψ) - c2(ϕ,ψ) - M(τ) - H(ψ)
 
     jacob((u,p,ζ,ϕ),(du,dp,dζ,dϕ),(v,q,τ,ψ)) = a1(du,v) + d1(u,du,v) + d2(u,du,v) + b1(v,dp) -F0(v,dϕ) + 
                                                b1(du,q) + 
@@ -130,13 +130,13 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     loss_div = solve(projection)
     loss_divh=norm(get_free_dof_values(loss_div),Inf)
 
-    uh, ph, ζh, ϕh, loss_divh, dΩ, dΛ, dΓout, h_e, h_e_Γout, Uh, Qh, Qh_, Wh, Φh, Φh_, Gridap.FESpaces.num_free_dofs(Xh)
+    uh, ph, ζh, ϕh, loss_divh, dΩ, dΛ, dΓout, h_e, h_e_Γout, Uh, Qh, Qh_, Wh, Wh_, Φh, Φh_, Gridap.FESpaces.num_free_dofs(Xh)
   end
 
   function compute_errorNoExact_simpleNorms(euh,eph,eζh,eϕh,dΩ)
     eu = (sum(∫((euh⋅euh).^(0.5*3.0))dΩ))^(1.0/3.0) + sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
     ep = sqrt(sum(∫(eph*eph)*dΩ))
-    eζ = (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0) + sqrt(sum(∫(eζh⋅eζh)dΩ)) 
+    eζ =   (1.0/α)*sqrt(sum(∫(eζh⋅eζh)dΩ)) + (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0)
     eϕ = (sum(∫((eϕh*eϕh).^(0.5*6.0))dΩ))^(1.0/6.0)
     eu, ep, eζ, eϕ
   end
@@ -207,12 +207,10 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
                                  rtol=rtol)
 
     ep = sqrt(dot(newfreedofs,b))
-    eu = sqrt(sum(∫(κinv*euh⋅euh)dΩ)) + 
-          (sum(∫(FF*(euh⋅euh).^(0.5*3.0))dΩ))^(1.0/3.0) + 
-          sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
+   eu = sqrt(sum(∫(κinv*euh⋅euh)dΩ)) + (sum(∫(FF*(euh⋅euh).^(0.5*3.0))dΩ))^(1.0/3.0) + sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
+   
 
-
-    eζ = (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0) + sqrt(sum(∫(eζh⋅eζh)dΩ))  
+    eζ = eu#(sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0) + sqrt(sum(∫((1.0/α)*(eζh⋅eζh))dΩ))  
 
     aϕ1(ϕ1,ϕ2) = ∫((1.0 + ρ0) * ϕ1 * ϕ2)*dΩ
     aϕ2(ϕ1,ϕ2) = ∫(ρ0 * ϕ1 * ϕ2)dΩ + ∫(α*(∇(ϕ1))⋅∇(ϕ2))dΩ + ∫((α/h_e)*jump(ϕ1)*jump(ϕ2))dΛ + ∫((α/h_e_Γout)*ϕ1*ϕ2)dΓout
@@ -301,15 +299,31 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
         # model=generate_model2d(nk-1)
         setup_model_labels_rectangle_channel!(model)
         # setup_model_labels_unit_square!(model)
-        uh,ph,ζh,ϕh,loss_divh, dΩ, dΛ, dΓout,  h_e, h_e_Γout, Uh, Qh, Qh_, Wh, Φh, Φh_, ndofs=solve_ForchheimerNoExact(model; k=k, generate_output=generate_output)
+        uh,ph,ζh,ϕh,loss_divh, dΩ, dΛ, dΓout,  h_e, h_e_Γout, Uh, Qh, Qh_, Wh, Wh_, Φh, Φh_, ndofs=solve_ForchheimerNoExact(model; k=k, generate_output=generate_output)
         ur_ = Interpolable(uref)
         pr_ = Interpolable(pref)  
         ur = interpolate_everywhere(ur_, Uh)
         pr = interpolate_everywhere(pr_, Qh)
         ζr_ = Interpolable(ζref)
-        ϕr_ = Interpolable(ϕref)  
-        ζr = interpolate_everywhere(ζr_, Wh)
-        ϕr = interpolate_everywhere(ϕr_, Φh)
+        # # reference element for ζ : ζr
+        # aζ(ζ,τ) = ∫(ζ⋅τ)dΩ + ∫((∇⋅ζ)*(∇⋅τ))dΩ
+        # lζ(τ)   = ∫((ζr_)⋅τ)dΩ + ∫((∇⋅(ζr_))*(∇⋅τ))dΩ
+        # projζ = AffineFEOperator(aζ,lζ,Wh,Wh_)
+        # ζr = solve(projζ)
+
+        # # reference element for ϕ : ϕr
+        # # aφ(p,q) = ∫(p*q)*dΩ
+        # # lφ(q)   = ∫(ϕr_⋅q)*dΩ
+        # # projφ = AffineFEOperator(aφ,lφ,Φh,Φh_)
+        # # ϕr = solve(projφ)
+
+
+
+
+        
+         ϕr_ = Interpolable(ϕref)  
+         ζr = interpolate_everywhere(ζr_, Wh)
+         ϕr = interpolate_everywhere(ϕr_, Φh)
         
         error_u,error_p,error_ζ,error_ϕ = compute_errorNoExact_simpleNorms(ur - uh,pr-ph,ζr-ζh,ϕr-ϕh,dΩ)
         error_uw,error_pw = compute_errorNoExact_weightedNorms(ur-uh,pr-ph,dΩ)
