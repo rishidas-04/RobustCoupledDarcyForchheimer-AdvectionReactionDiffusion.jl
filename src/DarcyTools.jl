@@ -136,11 +136,11 @@ function assemble_df_ard(model, k, κ, κF, FF, f_ex, g_ex, m_ex, u_ex, p_ex, ζ
 
     resi((u,p,ζ,ϕ),(v,q,τ,ψ)) =  a1(u,v) + b1(v,p) +
                                  b1(u,q) + 
-                                 a2(ζ,τ) + b2(τ,ϕ) +
-                                  b2(ζ,ψ) - c2(ϕ,ψ)
+                                 a2(ζ,τ) + b2(τ,ϕ) + e(u_ex,ϕ,τ) +
+                                 b2(ζ,ψ) - c2(ϕ,ψ)
                           
 
-    jaco((v,q,τ,ψ)) = F(v) - G(q) + M(τ) - H(ψ) - ∫((1.0)*(u_ex⋅τ) * ϕ_ex)*dΩ + ∫((transport∘ϕ_ex)⋅v)*dΩ 
+    jaco((v,q,τ,ψ)) = F(v) - G(q) + M(τ) - H(ψ) + ∫((transport∘ϕ_ex)⋅v)*dΩ #- ∫((1.0)*(u_ex⋅τ) * ϕ_ex)*dΩ 
 
   op = AffineFEOperator(resi,jaco,Xh,Yh)
   op,dΩ

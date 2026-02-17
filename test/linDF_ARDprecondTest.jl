@@ -32,7 +32,7 @@ function transport(ϕ)
 end
 
 const α = 1.0e-10
-const ρ0 = 1.0e-05
+const ρ0 = 1.0e-06
 
   u_ex(x)  = VectorValue(cos(π*x[1])*sin(π*x[2]),
                        -sin(π*x[1])*cos(π*x[2]))
@@ -40,13 +40,13 @@ const ρ0 = 1.0e-05
   ϕ_ex(x) = cos(2π*x[1])*cos(2π*x[2])
   w_ex(x) = α*∇(ϕ_ex)(x) - u_ex(x) * ϕ_ex(x)
 
-  f_ex(x) = κF(x)*u_ex(x) + ∇(p_ex)(x) - (transport∘ϕ_ex)(x)#+ FF*u_ex(x)*(normu∘u_ex)(x) 
+  f_ex(x) = κF(x)*u_ex(x) + ∇(p_ex)(x) #- (transport∘ϕ_ex)(x)#+ FF*u_ex(x)*(normu∘u_ex)(x) 
   g_ex(x) = (∇⋅u_ex)(x)
   m_ex(x) =  (1.0-g_ex(x))*ϕ_ex(x) - (∇⋅w_ex)(x)
 
   κF(x) = ((1.0/κ) + FF*((normu(u_ex(x)))^(r-2)))
   Finv(x) = 1.0 / κF(x)
-
+  rrrr(x) = normu(u_ex(x))
 
 function assemble_df_ard_noExact(model, k, κ, FF, α, ρ0, f_ex, g_ex, m_ex, u_ex, p_ex, ϕ_ex)
   reffe_u = ReferenceFE(raviart_thomas,Float64,k)
@@ -92,10 +92,10 @@ function assemble_df_ard_noExact(model, k, κ, FF, α, ρ0, f_ex, g_ex, m_ex, u_
 
     resi((u,p,ζ,ϕ),(v,q,τ,ψ)) =  a1(u,v) + b1(v,p) +
                                  b1(u,q) + 
-                                 a2(ζ,τ) + b2(τ,ϕ) +
+                                 a2(ζ,τ) + b2(τ,ϕ) + e(u_ex,ϕ,τ) +
                                  b2(ζ,ψ) - c2(ϕ,ψ) 
 
-    jaco((v,q,τ,ψ)) = F(v) - G(q) + M(τ) - H(ψ) - ∫((1.0)*(u_ex⋅τ) * ϕ_ex)*dΩ + ∫((transport∘ϕ_ex)⋅v)*dΩ  
+    jaco((v,q,τ,ψ)) = F(v) - G(q) + M(τ) - H(ψ) #+ ∫((transport∘ϕ_ex)⋅v)*dΩ  #- ∫((1.0)*(u_ex⋅τ) * ϕ_ex)*dΩ 
 
   op = AffineFEOperator(resi,jaco,Xh,Yh)
   op
@@ -130,9 +130,9 @@ end
         a22b_B2(p,q) = ∫(κ*(∇(p))⋅∇(q))dΩ + ∫((κ/h_e)*jump(p)*jump(q))dΛ + ∫((κ/h_e_Γ)*p*q)dΓ
         a22c_B2(p,q) = ∫(Finv*(∇(p))⋅∇(q))dΩ + ∫((Finv/h_e)*jump(p)*jump(q))dΛ + ∫((Finv/h_e_Γ)*p*q)dΓ
 
-        a33_B2(w1,w2) =  ∫((1.0/α)*(w1⋅w2))dΩ + ∫((∇⋅w1)*(∇⋅w2))*dΩ #+ ∫(coef_divw * (∇⋅w1)*(∇⋅w2))*dΩ 
+        a33_B2(w1,w2) =  ∫((1.0/α)*(w1⋅w2))dΩ + ∫(coef_divw * (∇⋅w1)*(∇⋅w2))*dΩ #+ ∫((∇⋅w1)*(∇⋅w2))*dΩ 
 
-        a44a_B2(ϕ1,ϕ2)  = ∫((1+ρ0) *ϕ1 * ϕ2)*dΩ #∫((x -> ((1+ρ0) * 5 * ϕ_ex(x) * ϕ_ex(x) * ϕ_ex(x) * ϕ_ex(x))) * ϕ1 * ϕ2)*dΩ 
+        a44a_B2(ϕ1,ϕ2)  = ∫((x -> ((1+ρ0) * ϕ_ex(x)*ϕ_ex(x)* ϕ_ex(x)*ϕ_ex(x))) * ϕ1 * ϕ2)*dΩ #+∫((1+ρ0) *ϕ1 * ϕ2)*dΩ
         a44b_B2(ϕ1,ϕ2) = ∫(ρ0 * ϕ1 * ϕ2)dΩ + ∫(α*(∇(ϕ1))⋅∇(ϕ2))dΩ + ∫((α/h_eu)*jump(ϕ1)*jump(ϕ2))dΛu + ∫((α/h_e_Γu)*ϕ1*ϕ2)dΓu
         
      A11_,A22a_,A22b_,A22c_,A33_,A44a_,A44b_ = assemble_matrix(a11_B2,X1,Y1),assemble_matrix(a22a_B2,X2,Y2),assemble_matrix(a22b_B2,X2,Y2),assemble_matrix(a22c_B2,X2,Y2),assemble_matrix(a33_B2,X3,Y3),assemble_matrix(a44a_B2,X4,Y4),assemble_matrix(a44b_B2,X4,Y4)
@@ -173,7 +173,7 @@ end
     return BlockDiagonalOperator(A11,A22,A33,A44)
   end
 
-k=0; κ = 1e-0; nk = 2; FF = 1e0
+k=0; κ = 1e-0; nk = 3; FF = 1e0
 
   model=generate_model2d(nk)
   setup_model_labels_unit_square!(model)
