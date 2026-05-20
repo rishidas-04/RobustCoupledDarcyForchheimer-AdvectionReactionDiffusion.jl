@@ -1,5 +1,8 @@
+# Convergence tests for DF-ARD with no exact solution, and w.r.to weighted norms.
+# NoExact DF-ARD convergence test
+
 module DarcyForchheimerConvergenceTests_NoExactSolution
-  using PertubedSaddlePointPreconditioners
+  # using GridapRobustDarcyForchheimer
   using Gridap
   import Gridap: ∇
   using Printf
@@ -11,12 +14,12 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
   using LinearOperators
 
   const κ0 = 1.0E-08
-  const r  = 3.5
-  const s  = 1.5 # exponent for pressure preconditioner
-  const FF = 1.0e05
+  const r  = 3.0
+  const s  = 0.5*r # exponent for pressure preconditioner
+  const FF = 1.0e4
 
-  const α = 1.0e-06
-  const ρ0 = 1.0e-03
+  const α = 1.0e-3
+  const ρ0 = 1.0e-5
 
   
   function normu(v)
@@ -26,9 +29,9 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     (v⋅v>0)*(r-2)*(sqrt(v⋅v))^(r-4)*v
   end
 
-  const α0 = 1.0E-0
-  const α1 = 1.0E-0
-  grav = VectorValue(0.0,1.0)
+  const α0 = 1.0E-1
+  const α1 = 1.0E-3
+  grav = VectorValue(0.0,-1.0)
   function transport(ϕ)
     grav*(α0+α1*ϕ)
   end
@@ -37,18 +40,75 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
   κinv(x)=  1.0/κ(x)
   weight_κFF(x) = 1.0/(κinv(x)+FF)
 
-  f_ex(x) = VectorValue(0.0,0.0)
-  g_ex(x) = 0.0
   zerov = VectorValue(0.0,0.0)
+  f_ex = VectorValue(0.0,0.0) 
   uin(x) = VectorValue(2.5*x[2]*(1-x[2]),0.0)
   pout  = 0.0
+  g_ex = 0.0
 
-  h_ex = VectorValue(0,0) 
-  m_ex(x) = 0.0
-  ζin(x) = VectorValue(0.0,2.5*x[1]*(1-x[1]))
-  ϕout(x) = 0.0
 
-  function solve_ForchheimerNoExact(model; k=k, generate_output=false)
+  ζin(x) = VectorValue(sin(pi*x[1]*x[2]),0.0) 
+  ϕout = 1.0
+  m_ex =  1.0
+
+function generate_rectangle(nk)
+  domain =(0,2,0,1)
+  n      = 2^nk + 1
+  # Discrete model
+  partition = (2*n,n)
+  CartesianDiscreteModel(domain, partition) |> simplexify
+end
+ 
+
+function setup_model_labels_rectangle_channel!(model)
+  labels = get_face_labeling(model)
+  add_tag!(labels,"Gamma_out",[8]) #right 
+  add_tag!(labels,"Gamma_in",[7,1,3]) # left and 2 corners
+  add_tag!(labels,"Gamma_topbot",[1,2,3,4,5,6]) # corners bottom and top
+end  
+
+function custom_stopping_condition(solver, A, b, r, tol)
+      mul!(r, A, solver.x)
+      r .-= b                        
+      bool = norm(r) ≤ tol*norm(b)   
+      @printf("ERR NORM: ||b-Ax||/||b||: %16.7e\n",norm(r)/norm(b))
+      return bool
+    end
+
+struct GridapLinearSolverPreconditioner{A,B}
+  numerical_setup::A
+  matrix::B
+  function GridapLinearSolverPreconditioner(matrix;ls=LUSolver())
+    ss=symbolic_setup(ls,matrix)
+    ns=numerical_setup(ss,matrix)
+    A=typeof(ns)
+    B=typeof(matrix)
+    new{A,B}(ns,matrix)
+ end
+end
+
+function LinearAlgebra.mul!(z::AbstractVector{T},
+              M::GridapLinearSolverPreconditioner,
+              r::AbstractVector{T}) where T
+  # Solve Mz=r ...
+  Gridap.solve!(z,M.numerical_setup,r)
+end
+
+function LinearOperators.LinearOperator(solver::GridapLinearSolverPreconditioner)
+  function apply(res, x, α, β)
+    if (β ≈ 0.0)
+      mul!(res,solver,x)
+    else 
+      @assert α ≈ 1.0
+      tmp=copy(res)
+      mul!(tmp,solver,x)
+      res .=  β .* res .+  α .* tmp
+    end
+  end
+  LinearOperator(Float64, size(solver.matrix,1), size(solver.matrix,2), true, true, apply)
+end 
+
+  function solve_DFARDNoExact(model; k=k, generate_output=false)
     reffe_u = ReferenceFE(raviart_thomas,Float64,k)
     reffe_p = ReferenceFE(lagrangian,Float64,k)
     reffe_ζ = ReferenceFE(raviart_thomas,Float64,k)
@@ -56,12 +116,12 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
 
     Uh_ = TestFESpace(model,reffe_u,dirichlet_tags=["Gamma_in","Gamma_topbot"],conformity=:HDiv)
     Qh_ = TestFESpace(model,reffe_p,conformity=:L2)
-    Wh_ = TestFESpace(model,reffe_ζ,dirichlet_tags="Gamma_out",conformity=:HDiv)
+    Wh_ = TestFESpace(model,reffe_ζ,dirichlet_tags=["Gamma_in","Gamma_topbot"],conformity=:HDiv)
     Φh_ = TestFESpace(model,reffe_ϕ,conformity=:L2)
 
     Uh = TrialFESpace(Uh_,[uin,zerov])
     Qh = TrialFESpace(Qh_)
-    Wh = TrialFESpace(Wh_,ζin)
+    Wh = TrialFESpace(Wh_,[ζin,zerov])
     Φh = TrialFESpace(Φh_)
 
     Yh = MultiFieldFESpace([Uh_,Qh_,Wh_,Φh_])
@@ -80,13 +140,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     h_e_Γout = CellField(get_array(∫(1)dΓout), Γout)
 
 
-    Γin = BoundaryTriangulation(model, tags = ["Gamma_in","Gamma_topbot"])
-    dΓin = Measure(Γin,2*(k+2)-1)
-    n_Γin = get_normal_vector(Γin)
-    h_e_Γin = CellField(get_array(∫(1)dΓin), Γin)
-
-
-    a1(u,v)   = ∫( (κinv)*(u⋅v))*dΩ
+    a1(u,v)   = ∫((κinv)*(u⋅v))*dΩ
     c(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d1(u,w,v) = ∫(FF*v⋅((normu∘(u))*w))dΩ
     d2(u,w,v) = ∫(FF*(u⋅v)*((deri∘(u))⋅w))dΩ 
@@ -97,15 +151,15 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     
     a2(ζ,τ) = ∫( (1.0/α)*(ζ⋅τ))*dΩ
     b2(τ,ψ) = ∫((∇⋅τ)*ψ)*dΩ
-    c2(ϕ,ψ) = ∫(ρ0*(ϕ * ψ))*dΩ - ∫(g_ex*(ϕ * ψ))*dΩ
+    c2(ϕ,ψ) = ∫(ρ0*(ϕ * ψ))*dΩ 
     e(u,ϕ,τ) = ∫((1.0/α)* (u⋅τ) * ϕ)*dΩ  
-    M(τ) = ∫(ϕout*(τ⋅n_Γin))dΓin
-    H(ψ) = ∫(-(m_ex*ψ))dΩ
+    M(τ) = ∫(ϕout*(τ⋅n_Γout))dΓout
+    H(ψ) = ∫((m_ex*ψ))dΩ
 
     resid((u,p,ζ,ϕ),(v,q,τ,ψ)) = a1(u,v) + c(u,u,v) + b1(v,p) +
-                                 b1(u,q) - F0(v,ϕ) - F(v) - G(q) + 
+                                 b1(u,q) - F0(v,ϕ) - F(v) + G(q) + 
                                  a2(ζ,τ) + b2(τ,ϕ) + e(u,ϕ,τ) + 
-                                 b2(ζ,ψ) - c2(ϕ,ψ) - M(τ) - H(ψ)
+                                 b2(ζ,ψ) - c2(ϕ,ψ) - M(τ) + H(ψ)
 
     jacob((u,p,ζ,ϕ),(du,dp,dζ,dϕ),(v,q,τ,ψ)) = a1(du,v) + d1(u,du,v) + d2(u,du,v) + b1(v,dp) -F0(v,dϕ) + 
                                                b1(du,q) + 
@@ -113,7 +167,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
                                                b2(dζ,ψ) - c2(dϕ,ψ) 
 
     oper = FEOperator(resid,jacob,Xh,Yh)
-    nls = NLSolver(show_trace=true, method=:newton, linesearch=BackTracking(), iterations=25, ftol=1.0E-7)
+    nls = NLSolver(show_trace=true, method=:newton, linesearch=BackTracking(), iterations=15, ftol=1.0E-7)
     solver = FESolver(nls)
     x0=0.01*ones(num_free_dofs(Xh)) 
     xh=FEFunction(Xh,x0)
@@ -134,9 +188,9 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
   end
 
   function compute_errorNoExact_simpleNorms(euh,eph,eζh,eϕh,dΩ)
-    eu = (sum(∫((euh⋅euh).^(0.5*3.0))dΩ))^(1.0/3.0) + sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
+    eu = (sum(∫((euh⋅euh).^(0.5*r))dΩ))^(1.0/r) + sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
     ep = sqrt(sum(∫(eph*eph)*dΩ))
-    eζ =   (1.0/α)*sqrt(sum(∫(eζh⋅eζh)dΩ)) + (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0)
+    eζ = sqrt(sum(∫(eζh⋅eζh)dΩ)) + (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0)
     eϕ = (sum(∫((eϕh*eϕh).^(0.5*6.0))dΩ))^(1.0/6.0)
     eu, ep, eζ, eϕ
   end
@@ -207,15 +261,17 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
                                  rtol=rtol)
 
     ep = sqrt(dot(newfreedofs,b))
-   eu = sqrt(sum(∫(κinv*euh⋅euh)dΩ)) + (sum(∫(FF*(euh⋅euh).^(0.5*3.0))dΩ))^(1.0/3.0) + sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
+    eu = sqrt(sum(∫(κinv*euh⋅euh)dΩ)) + (sum(∫(FF*(euh⋅euh).^(0.5*3.0))dΩ))^(1.0/3.0) + sqrt(sum(∫((∇⋅euh)*(∇⋅euh))*dΩ))
    
 
-    eζ = eu#(sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0) + sqrt(sum(∫((1.0/α)*(eζh⋅eζh))dΩ))  
-
+    eζ = (sum(∫(((∇⋅eζh)*(∇⋅eζh)).^(0.5*6.0/5.0))dΩ))^(5.0/6.0) + sqrt(sum(∫((1.0/α)*(eζh⋅eζh))dΩ))  
+    
     aϕ1(ϕ1,ϕ2) = ∫((1.0 + ρ0) * ϕ1 * ϕ2)*dΩ
     aϕ2(ϕ1,ϕ2) = ∫(ρ0 * ϕ1 * ϕ2)dΩ + ∫(α*(∇(ϕ1))⋅∇(ϕ2))dΩ + ∫((α/h_e)*jump(ϕ1)*jump(ϕ2))dΛ + ∫((α/h_e_Γout)*ϕ1*ϕ2)dΓout
-              
-    
+             ######################################################## 
+    #### This block for ϕ is not the one we want to test, but for now, for simplicity in computation and just 
+    #### to see if the conv. rates in the other norms (for u, p and ζ) are correct or not, we are doing this.
+             ########################################################
     A44_m1, A44_m2 = assemble_matrix(aϕ1,Φh,Φh_), assemble_matrix(aϕ2,Φh,Φh_)
 
     A44lo = LinearOperator(GridapLinearSolverPreconditioner(A44_m1)) +
@@ -287,19 +343,20 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
     push!(rϕpre,0.)
 
 
-    modelfine = generate_rectangle(7)
-    # modelfine = generate_model2d(7)
+    modelfine = generate_rectangle(8)
     setup_model_labels_rectangle_channel!(modelfine)
-    # setup_model_labels_unit_square!(modelfine)
-    uref,pref,ζref,ϕref,_,_,_,_,_,_ = solve_ForchheimerNoExact(modelfine; k=k, generate_output=false)
+    uref,pref,ζref,ϕref,_,_,_,_,_,_ = solve_DFARDNoExact(modelfine; k=k, generate_output=false)
 
     for nk in 1:nkmax
+        # println("******** Refinement step: $nk")
+        # model=generate_rectangle(nk-1)
+        # # model=generate_model2d(nk-1)
+        # setup_model_labels_rectangle_channel!(model)
         println("******** Refinement step: $nk")
         model=generate_rectangle(nk-1)
-        # model=generate_model2d(nk-1)
         setup_model_labels_rectangle_channel!(model)
         # setup_model_labels_unit_square!(model)
-        uh,ph,ζh,ϕh,loss_divh, dΩ, dΛ, dΓout,  h_e, h_e_Γout, Uh, Qh, Qh_, Wh, Wh_, Φh, Φh_, ndofs=solve_ForchheimerNoExact(model; k=k, generate_output=generate_output)
+        uh,ph,ζh,ϕh,loss_divh, dΩ, dΛ, dΓout,  h_e, h_e_Γout, Uh, Qh, Qh_, Wh, Wh_, Φh, Φh_, ndofs=solve_DFARDNoExact(model; k=k, generate_output=generate_output)
         ur_ = Interpolable(uref)
         pr_ = Interpolable(pref)  
         ur = interpolate_everywhere(ur_, Uh)
@@ -317,10 +374,6 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
         # # projφ = AffineFEOperator(aφ,lφ,Φh,Φh_)
         # # ϕr = solve(projφ)
 
-
-
-
-        
          ϕr_ = Interpolable(ϕref)  
          ζr = interpolate_everywhere(ζr_, Wh)
          ϕr = interpolate_everywhere(ϕr_, Φh)
@@ -365,11 +418,11 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
         @printf("%7d & %.4f & %.2e & %.3f & %.2e & %.3f & %.2e & %.3f & %.2e & %.3f&  %.2e\n", 
                 nn[nk], hh[nk], eu[nk], ru[nk], ep[nk], rp[nk], eζ[nk], rζ[nk], eϕ[nk], rϕ[nk], losses_divh[nk]);
     end
-    println("================== p with weighting =====================================")
-    for nk in 1:nkmax
-        @printf("%7d & %.4f & %.2e & %.3f & %.2e & %.3f & %.2e\n", 
-                nn[nk], hh[nk], euw[nk], ruw[nk], epw[nk], rpw[nk], losses_divh[nk]);
-    end
+    # println("================== p with weighting =====================================")
+    # for nk in 1:nkmax
+    #     @printf("%7d & %.4f & %.2e & %.3f & %.2e & %.3f & %.2e\n", 
+    #             nn[nk], hh[nk], euw[nk], ruw[nk], epw[nk], rpw[nk], losses_divh[nk]);
+    # end
     println("=================== p with preconditioning ====================================")
     for nk in 1:nkmax
         @printf("%7d & %.4f & %.2e & %.3f & %.2e & %.3f & %.2e & %.3f & %.2e & %.3f & %.2e\n", 
