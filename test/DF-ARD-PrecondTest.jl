@@ -231,27 +231,27 @@ unorm = CellField(x -> norm(u_ex(x))^2, Ω)
       A22inv=inv(Array(A22_));  
       Pinv[range2,range2]=A22inv;  
       small = 1e-12
-      a33_B2(w1,w2) =  ∫(((1.0/α))*(w1⋅w2))dΩ + ∫((∇⋅w1)*(∇⋅w2))*dΩ + ∫((1.0/α)*(((∇⋅w1)*((x->u_ex(x))⋅w2))+small))*dΩ # + ∫((1.0/α)*(∇⋅w1)*((x->u_ex(x))⋅w2))*dΩ
+      a33_B2(w1,w2) =  ∫(((1.0/α))*(w1⋅w2))dΩ + ∫((∇⋅w1)*(∇⋅w2))*dΩ #+ ∫((1.0/α)*(((∇⋅w1)*((x->u_ex(x))⋅w2))+small))*dΩ # + ∫((1.0/α)*(∇⋅w1)*((x->u_ex(x))⋅w2))*dΩ
       a44a_B2(ϕ, ψ) = ∫((1.0+ρ0)*ϕ*ψ)dΩ #+ ∫((α/h_e)*jump(ϕ)*jump(ψ))dΛ
       
-      a44b_B2(ϕ,ψ) = ∫(ρ0 * ϕ * ψ)*dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))dΩ + 
-                     ∫((α/h_eu)*jump(ϕ)*jump(ψ))dΛu + 
-                     ∫((α/h_e_Γu)*ϕ*ψ)dΓu 
+      # a44b_B2(ϕ,ψ) = ∫(ρ0 * ϕ * ψ)*dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))dΩ + 
+      #                ∫((α/h_eu)*jump(ϕ)*jump(ψ))dΛu + 
+      #                ∫((α/h_e_Γu)*ϕ*ψ)dΓu 
 
-      # a44b_B2(ϕ, ψ) = ∫((ρ0)*ϕ*ψ)dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))*dΩ +
-      #          ∫((α/h_e)*jump(ϕ)*jump(ψ))dΛ +
-      #          ∫((α/h_e_Γu)*ϕ*ψ)dΓu - 
-      #          ∫(α*((∇(ϕ))⋅n_Γu)*ψ)dΓu - ∫(α*mean(∇(ϕ))⋅jump(ψ*n_Λ))dΛ -
-      #          ∫(α*((∇(ψ))⋅n_Γu)*ϕ)dΓu - ∫(α*mean(∇(ψ))⋅jump(ϕ*n_Λ))dΛ +
-      #          ∫((u_ex⋅∇(ϕ))*ψ)dΩ +  
-      #          ∫((0.5*(β.⁻))*(mean(ϕ)*jump(ψ)))dΛ + #skeleton central
-      #          ∫((0.5*abs(β.⁺))*(jump(ϕ)*jump(ψ)))dΛ + #skeleton upwind
-      #          ∫((0.5*abs(βu))*(ϕ*ψ))*dΓu + #boundary upwind
-      #          ∫((0.5*abs(βp))*(ϕ*ψ))*dΓp + #boundary upwind
-      #         #  ∫(((u_ex*ϕ)⋅(u_ex*ψ)))dΩ +
-      #          ∫(τK*(u_ex⋅(∇(ϕ)))*(u_ex⋅(∇(ψ))))dΩ +
-      #          ∫(τK*ϕ*ρ0*(u_ex⋅(∇(ψ))))dΩ #+
-      #         #  ∫(τK*(ϕ)*unorm*(u_ex⋅(∇(ψ))))dΩ
+      a44b_B2(ϕ, ψ) = ∫((ρ0)*ϕ*ψ)dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))*dΩ +
+               ∫((α/h_e)*jump(ϕ)*jump(ψ))dΛ +
+               ∫((α/h_e_Γu)*ϕ*ψ)dΓu - 
+               ∫(α*((∇(ϕ))⋅n_Γu)*ψ)dΓu - ∫(α*mean(∇(ϕ))⋅jump(ψ*n_Λ))dΛ -
+               ∫(α*((∇(ψ))⋅n_Γu)*ϕ)dΓu - ∫(α*mean(∇(ψ))⋅jump(ϕ*n_Λ))dΛ +
+               ∫((u_ex⋅∇(ϕ))*ψ)dΩ +  
+               ∫((0.5*(β.⁻))*(mean(ϕ)*jump(ψ)))dΛ + #skeleton central
+               ∫((0.5*abs(β.⁺))*(jump(ϕ)*jump(ψ)))dΛ + #skeleton upwind
+               ∫((0.5*abs(βu))*(ϕ*ψ))*dΓu + #boundary upwind
+               ∫((0.5*abs(βp))*(ϕ*ψ))*dΓp + #boundary upwind
+              #  ∫(((u_ex*ϕ)⋅(u_ex*ψ)))dΩ +
+               ∫(τK*(u_ex⋅(∇(ϕ)))*(u_ex⋅(∇(ψ))))dΩ +
+               ∫(τK*ϕ*ρ0*(u_ex⋅(∇(ψ))))dΩ #+
+              #  ∫(τK*(ϕ)*unorm*(u_ex⋅(∇(ψ))))dΩ
 
 
        A33_ = assemble_matrix(a33_B2,Wh,Wh_)
@@ -301,7 +301,7 @@ unorm = CellField(x -> norm(u_ex(x))^2, Ω)
             #  ρ0 = 1e-0
           println("\n--- Running for nk=$nk, r=$r, kappa=$κ, FF=$FF, α=$α, ρ0=$ρ0 ---")
 
-          oper,riesz,evals = assemble_linearised_darcy_forchheimer_and_precond(model, u_ex, p_ex, ϕ_ex, g_ex; k=0, κ=κ, FF=FF, r=r, α=α, ρ0=ρ0, prec_variant=:B1)
+          oper,riesz,evals = assemble_linearised_darcy_forchheimer_and_precond(model, u_ex, p_ex, ϕ_ex, g_ex; k=0, κ=κ, FF=FF, r=r, α=α, ρ0=ρ0, prec_variant=:B2)
           
           A = oper.op.matrix
           b = oper.op.vector
