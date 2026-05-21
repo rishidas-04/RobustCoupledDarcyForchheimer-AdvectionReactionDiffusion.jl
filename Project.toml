@@ -4,6 +4,7 @@ authors = ["Rishi Das <drishi0077@gmail.com>", "Ricardo Ruiz Baier <ricardo.ruiz
 version = "1.0.0-DEV"
 
 [deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Gridap = "56d4f2e9-7ea1-5844-9cf6-b9c51ca7ce8e"
 GridapGmsh = "3025c34a-b394-11e9-2a55-3fee550c04c8"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
@@ -11,4 +12,3 @@ LineSearches = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearOperators = "5c8ed15e-5a4c-59e4-a42b-c7e8811fb125"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-
