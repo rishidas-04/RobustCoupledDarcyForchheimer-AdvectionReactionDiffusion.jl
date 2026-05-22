@@ -41,7 +41,7 @@ module DarcyForchheimerConvergenceTests_NoExactSolution
   weight_κFF(x) = 1.0/(κinv(x)+FF)
 
   zerov = VectorValue(0.0,0.0)
-  f_ex = VectorValue(0.0,0.0) 
+  f_ex = VectorValue(0.0000001,0.00000001) 
   uin(x) = VectorValue(2.5*x[2]*(1-x[2]),0.0)
   pout  = 0.0
   g_ex = 0.0
@@ -119,9 +119,9 @@ end
     Wh_ = TestFESpace(model,reffe_ζ,dirichlet_tags=["Gamma_in","Gamma_topbot"],conformity=:HDiv)
     Φh_ = TestFESpace(model,reffe_ϕ,conformity=:L2)
 
-    Uh = TrialFESpace(Uh_,[uin,zerov])
+    Uh = TrialFESpace(Uh_,[uin,uin])
     Qh = TrialFESpace(Qh_)
-    Wh = TrialFESpace(Wh_,[ζin,zerov])
+    Wh = TrialFESpace(Wh_,[ζin,ζin])
     Φh = TrialFESpace(Φh_)
 
     Yh = MultiFieldFESpace([Uh_,Qh_,Wh_,Φh_])
