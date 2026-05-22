@@ -18,7 +18,6 @@ module LinearisedDarcyForchheimerPreconditionerTests
     (v⋅v>0)*(r-2)*(sqrt(v⋅v))^(r-4)*v   
   end
 
-#  const α = 1.0e-09
  const α0 = 1.0E-01
  const α1 = 1.0E-01
 
@@ -138,13 +137,8 @@ hK = CellField(get_array(∫(1)dΩ), Ω)
 unorm = CellField(x -> norm(u_ex(x))^2, Ω)
 β = ufield⋅n_Λ;
 βu = ufield⋅n_Γu; βp = ufield⋅n_Γp
-# τK = CellField(x -> unorm(x) *(1.0 / sqrt((2*norm(u_ex(x))/hK(x))^2 + (4*α/(hK(x)^2))^2)), Ω)
 τK = CellField(x -> (1.0 / sqrt((2*norm(u_ex(x))/hK(x))^2 + (4*α/(hK(x)^2))^2 + ρ0)), Ω)
 
-
-    # block diagonal preconditioner 
-    # with blocks spectrally equivalent to the diagonal blocks of 
-    # the Jacobian of the linearised problem.
    N  = num_free_dofs(op.trial)
     Ns = [num_free_dofs(U) for U in op.trial] 
     Np = zeros(Int,length(Ns)+1)
@@ -163,6 +157,7 @@ unorm = CellField(x -> norm(u_ex(x))^2, Ω)
     @assert prec_variant in (:B1,:B2)
     if (prec_variant==:B1)
       
+    #################### B^2,2 PRECONDITIONER (5.8) in the paper #############
       a11_B1(u,v) = ∫((1/κ)*(u⋅v) + ((FHum⋅u)⋅v) + (∇⋅u)*(∇⋅v))dΩ
       
       a22a_B1(p,q)= ∫(p*q)dΩ
@@ -176,12 +171,10 @@ unorm = CellField(x -> norm(u_ex(x))^2, Ω)
                      ∫(1.0/h_e_Γp*(x->pweight(x)⊙I/dim)*p*q)dΓp
 
       small = 1e-12
-      a33_B1(w1,w2) =   ∫(((1.0/α))*(w1⋅w2))dΩ + ∫((∇⋅w1)*(∇⋅w2))*dΩ #+ ∫((1.0/α)*(((∇⋅w1)*((x->u_ex(x))⋅w2))+small))*dΩ 
+      a33_B1(w1,w2) =   ∫(((1.0/α))*(w1⋅w2))dΩ + ∫((∇⋅w1)*(∇⋅w2))*dΩ 
+
       a44a_B1(ϕ, ψ) = ∫((1.0+ρ0)*ϕ*ψ)dΩ 
-      # a44b_B1(ϕ, ψ) = ∫((ρ0)*ϕ*ψ)dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))*dΩ +
-      #                 ∫((α/h_e)*jump(ϕ)*jump(ψ))dΛ +
-      #                 ∫((α/h_e_Γu)*ϕ*ψ)dΓu 
-      
+    
       a44b_B1(ϕ, ψ) = ∫((ρ0)*ϕ*ψ)dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))*dΩ +
                ∫((α/h_e)*jump(ϕ)*jump(ψ))dΛ +
                ∫((α/h_e_Γu)*ϕ*ψ)dΓu - 
@@ -192,11 +185,31 @@ unorm = CellField(x -> norm(u_ex(x))^2, Ω)
                ∫((0.5*abs(β.⁺))*(jump(ϕ)*jump(ψ)))dΛ + #skeleton upwind
                ∫((0.5*abs(βu))*(ϕ*ψ))*dΓu + #boundary upwind
                ∫((0.5*abs(βp))*(ϕ*ψ))*dΓp + #boundary upwind
-              #  ∫(((u_ex*ϕ)⋅(u_ex*ψ)))dΩ +
                ∫(τK*(u_ex⋅(∇(ϕ)))*(u_ex⋅(∇(ψ))))dΩ +
-               ∫(τK*ϕ*ρ0*(u_ex⋅(∇(ψ))))dΩ #+
-              #  ∫(τK*(ϕ)*unorm*(u_ex⋅(∇(ψ))))dΩ
+               ∫(τK*ϕ*ρ0*(u_ex⋅(∇(ψ))))dΩ 
+##############################################################################################
 
+##################### B^2,1 PRECONDITIONER (5.8) in the paper #############
+      # a11_B1(u,v) = ∫((1/κ)*(u⋅v) + ((FHum⋅u)⋅v) + (∇⋅u)*(∇⋅v))dΩ
+      
+      # a22a_B1(p,q)= ∫(p*q)dΩ
+
+      # a22b_B1(p,q) = ∫(κ*(∇(p))⋅∇(q))dΩ + 
+      #                ∫((κ/h_e)*jump(p)*jump(q))dΛ + 
+      #                ∫((κ/h_e_Γp)*p*q)dΓp
+                         
+      # a22c_B1(p,q) = ∫((pweight⋅∇(p))⋅∇(q))dΩ +
+      #                ∫(1.0/h_e*(x->pweight(x)⊙I/dim)*jump(p)*jump(q))dΛ + 
+      #                ∫(1.0/h_e_Γp*(x->pweight(x)⊙I/dim)*p*q)dΓp
+
+      # small = 1e-12
+      # a33_B1(w1,w2) = ∫(((1.0/α))*(w1⋅w2))dΩ + ∫((∇⋅w1)*(∇⋅w2))*dΩ +
+      #                 ∫((1.0/α)*(((∇⋅w1)*((x->u_ex(x))⋅w2))+small))*dΩ 
+      # a44a_B1(ϕ, ψ) = ∫((1.0+ρ0)*ϕ*ψ)dΩ 
+      # a44b_B1(ϕ, ψ) = ∫((ρ0)*ϕ*ψ)dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))*dΩ +
+      #                 ∫((α/h_e)*jump(ϕ)*jump(ψ))dΛ +
+      #                 ∫((α/h_e_Γu)*ϕ*ψ)dΓu 
+    #######################################################################################          
   
       A11_,A22a_,A22b_,A22c_ = assemble_matrix(a11_B1,Uh,Uh_),assemble_matrix(a22a_B1,Qh,Qh_),assemble_matrix(a22b_B1,Qh,Qh_),assemble_matrix(a22c_B1,Qh,Qh_)
       A33_ = assemble_matrix(a33_B1,Wh,Wh_)
@@ -222,6 +235,8 @@ unorm = CellField(x -> norm(u_ex(x))^2, Ω)
 
     Pinv[range4,range4]=A44ainv+A44binv; 
     else
+    
+    ###################### B^1,2 PRECONDITIONER (5.8) in the paper#####################################
       a11_B2(u,v)=∫((κinvpFHum⋅u)⋅v + (x->κinvpFHum(x)⊙I/dim)*(∇⋅u)*(∇⋅v))dΩ
       a22_B2(p,q)= ∫((x->inv(κinvpFHum(x))⊙I/dim)*p*q)dΩ
 
@@ -231,12 +246,7 @@ unorm = CellField(x -> norm(u_ex(x))^2, Ω)
       A22inv=inv(Array(A22_));  
       Pinv[range2,range2]=A22inv;  
       small = 1e-12
-      a33_B2(w1,w2) =  ∫(((1.0/α))*(w1⋅w2))dΩ + ∫((∇⋅w1)*(∇⋅w2))*dΩ #+ ∫((1.0/α)*(((∇⋅w1)*((x->u_ex(x))⋅w2))+small))*dΩ # + ∫((1.0/α)*(∇⋅w1)*((x->u_ex(x))⋅w2))*dΩ
-      a44a_B2(ϕ, ψ) = ∫((1.0+ρ0)*ϕ*ψ)dΩ #+ ∫((α/h_e)*jump(ϕ)*jump(ψ))dΛ
-      
-      # a44b_B2(ϕ,ψ) = ∫(ρ0 * ϕ * ψ)*dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))dΩ + 
-      #                ∫((α/h_eu)*jump(ϕ)*jump(ψ))dΛu + 
-      #                ∫((α/h_e_Γu)*ϕ*ψ)dΓu 
+      a33_B2(w1,w2) =  ∫(((1.0/α))*(w1⋅w2))dΩ + ∫((∇⋅w1)*(∇⋅w2))*dΩ 
 
       a44b_B2(ϕ, ψ) = ∫((ρ0)*ϕ*ψ)dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))*dΩ +
                ∫((α/h_e)*jump(ϕ)*jump(ψ))dΛ +
@@ -248,13 +258,29 @@ unorm = CellField(x -> norm(u_ex(x))^2, Ω)
                ∫((0.5*abs(β.⁺))*(jump(ϕ)*jump(ψ)))dΛ + #skeleton upwind
                ∫((0.5*abs(βu))*(ϕ*ψ))*dΓu + #boundary upwind
                ∫((0.5*abs(βp))*(ϕ*ψ))*dΓp + #boundary upwind
-              #  ∫(((u_ex*ϕ)⋅(u_ex*ψ)))dΩ +
                ∫(τK*(u_ex⋅(∇(ϕ)))*(u_ex⋅(∇(ψ))))dΩ +
-               ∫(τK*ϕ*ρ0*(u_ex⋅(∇(ψ))))dΩ #+
-              #  ∫(τK*(ϕ)*unorm*(u_ex⋅(∇(ψ))))dΩ
+               ∫(τK*ϕ*ρ0*(u_ex⋅(∇(ψ))))dΩ
 
+    #############################################################################
 
-       A33_ = assemble_matrix(a33_B2,Wh,Wh_)
+    ###################### B^1,1 PRECONDITIONER (5.8) in the paper################
+      # a11_B2(u,v)=∫((κinvpFHum⋅u)⋅v + (x->κinvpFHum(x)⊙I/dim)*(∇⋅u)*(∇⋅v))dΩ
+      # a22_B2(p,q)= ∫((x->inv(κinvpFHum(x))⊙I/dim)*p*q)dΩ
+
+      # A11_,A22_= assemble_matrix(a11_B2,Uh,Uh_),assemble_matrix(a22_B2,Qh,Qh_)  
+      # A22=LinearOperator(GridapLinearSolverPreconditioner(A22_)) 
+
+      # A22inv=inv(Array(A22_));  
+      # Pinv[range2,range2]=A22inv;  
+      # small = 1e-12
+      # a33_B2(w1,w2) =  ∫(((1.0/α))*(w1⋅w2))dΩ + ∫((∇⋅w1)*(∇⋅w2))*dΩ + ∫((1.0/α)*(((∇⋅w1)*((x->u_ex(x))⋅w2))+small))*dΩ 
+      
+      # a44b_B2(ϕ,ψ) = ∫(ρ0 * ϕ * ψ)*dΩ + ∫(α*(∇(ϕ))⋅∇(ψ))dΩ + 
+      #                ∫((α/h_eu)*jump(ϕ)*jump(ψ))dΛu + 
+      #                ∫((α/h_e_Γu)*ϕ*ψ)dΓu 
+
+    ##########################################################################
+      A33_ = assemble_matrix(a33_B2,Wh,Wh_)
       A44a_ = assemble_matrix(a44a_B2,Ψh,Ψh_)
       A44b_ = assemble_matrix(a44b_B2,Ψh,Ψh_)
        
